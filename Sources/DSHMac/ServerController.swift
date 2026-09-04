@@ -32,9 +32,9 @@ protocol ServerControllerDelegate: AnyObject {
 /// startup, readiness detection, crash restart, and graceful teardown.
 final class ServerController {
   /// Ready line dsh prints after the Loader settles and the server binds:
-  /// `dsh web: http://127.0.0.1:<port>`.
+  /// `dsh web: http://127.0.0.1:<port>/?token=...`.
   static let readyPattern = try! NSRegularExpression(
-    pattern: #"dsh web: http://127\.0\.0\.1:(\d+)"#)
+    pattern: #"dsh web: (http://127\.0\.0\.1:\d+/\?token=[^\s)]+)"#)
 
   let options: LaunchOptions
   weak var delegate: ServerControllerDelegate?
@@ -43,6 +43,10 @@ final class ServerController {
   private(set) var serverURL: URL?
   /// The child process this app spawned; nil when attached to an existing server.
   private(set) var spawnedProcess: Process?
+
+  /// Retained for the lifetime of the spawned process so its stdin write end
+  /// does not deallocate (ARC) and EOF the child's stdin prematurely.
+  private var stdinPipe: Pipe?
 
   private var stopping = false
   private var restartAttempts = 0
@@ -59,7 +63,9 @@ final class ServerController {
   /// no-external-browser contract is covered by a regression test.
   static func webArguments(port requestedPort: Int?) -> [String] {
     var args = ["web", "--no-open"]
-    if let requestedPort { args += ["--port", String(requestedPort)] }
+    // Default to 8888 so the app runs alongside an existing dsh instance
+    // (e.g. the 3081 LaunchAgent) instead of clashing on the conventional port.
+    args += ["--port", String(requestedPort ?? 8888)]
     return args
   }
 
@@ -103,7 +109,7 @@ final class ServerController {
   func start() {
     stopping = false
     attachmentMonitorGeneration += 1
-    let targetPort = options.port ?? 3080
+    let targetPort = options.port ?? 8888
     let forced = options.port != nil
     AppLog.shared.info("server: start; target port \(targetPort), forceSpawn=\(options.forceSpawn)")
     delegate?.serverController(self, didUpdateStatus: options.forceSpawn
@@ -132,13 +138,52 @@ final class ServerController {
   /// Reuse an already-running dsh web instance; the app never terminates a
   /// server it did not spawn.
   private func attach(port: Int) {
-    let url = URL(string: "http://127.0.0.1:\(port)/")!
+    // Read the latest token from dsh logs so the WebKit view can authenticate.
+    var url = URL(string: "http://127.0.0.1:\(port)/")!
+    if let token = Self.readLatestToken(port: port) {
+      url = URL(string: "http://127.0.0.1:\(port)/?token=\(token)")!
+    }
     AppLog.shared.info("server: attaching to existing dsh web at \(url)")
     serverURL = url
     delegate?.serverController(self, didUpdateStatus: "已连接到本地服务…")
     delegate?.serverController(self, didBecomeReady: url)
     let generation = attachmentMonitorGeneration
     scheduleAttachedServerHealthCheck(port: port, generation: generation)
+  }
+
+  /// Read the most recent auth token for the given port from dsh log files.
+  private static func readLatestToken(port: Int) -> String? {
+    let logDirs = [
+      NSHomeDirectory() + "/Library/Logs/DeepSeekHarness",
+      NSHomeDirectory() + "/.dsh"
+    ]
+    let fm = FileManager.default
+    var bestToken: String?
+    var bestDate = Date.distantPast
+    for dir in logDirs {
+      guard let files = try? fm.contentsOfDirectory(atPath: dir) else { continue }
+      for file in files where file.hasSuffix(".log") {
+        let path = dir + "/" + file
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let text = String(data: data, encoding: .utf8) else { continue }
+        let lines = text.components(separatedBy: "\n")
+        for line in lines.reversed() {
+          let pattern = "http://127.0.0.1:\(port)/\\?token=([^\\s)]+)"
+          guard let regex = try? NSRegularExpression(pattern: pattern),
+                let match = regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
+                let range = Range(match.range(at: 1), in: line) else { continue }
+          let token = String(line[range])
+          if let attrs = try? fm.attributesOfItem(atPath: path),
+             let modDate = attrs[.modificationDate] as? Date,
+             modDate > bestDate {
+            bestDate = modDate
+            bestToken = token
+          }
+          break  // found the latest line in this file
+        }
+      }
+    }
+    return bestToken
   }
 
   /// Spawn `dsh web` and wait for its readiness line.
@@ -181,8 +226,13 @@ final class ServerController {
 
     let stdoutPipe = Pipe()
     let stderrPipe = Pipe()
+    let stdinPipe = Pipe()
     process.standardOutput = stdoutPipe
     process.standardError = stderrPipe
+    // Give the child an open stdin so it does not immediately EOF and exit 0.
+    // The pipe is retained below for the lifetime of the process.
+    process.standardInput = stdinPipe
+    self.stdinPipe = stdinPipe
 
     stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
       let data = handle.availableData
@@ -235,14 +285,16 @@ final class ServerController {
     guard serverURL == nil else { return }
     let range = NSRange(line.startIndex..., in: line)
     guard let match = Self.readyPattern.firstMatch(in: line, range: range),
-      let portRange = Range(match.range(at: 1), in: line),
-      let port = Int(line[portRange]) else { return }
-    DispatchQueue.main.async { [weak self] in self?.becomeReady(port: port) }
+      let urlRange = Range(match.range(at: 1), in: line) else { return }
+    // Group 1 is the full tokenized URL (e.g. http://127.0.0.1:8888/?token=...).
+    // Use it directly so WKWebView authenticates instead of hitting the 401 wall.
+    let readyURL = String(line[urlRange])
+    DispatchQueue.main.async { [weak self] in self?.becomeReady(urlString: readyURL) }
   }
 
-  private func becomeReady(port: Int) {
+  private func becomeReady(urlString: String) {
     guard serverURL == nil else { return }
-    let url = URL(string: "http://127.0.0.1:\(port)/")!
+    guard let url = URL(string: urlString) else { return }
     AppLog.shared.info("server: ready at \(url)")
     serverURL = url
     readyTimeoutWork?.cancel()
@@ -355,7 +407,8 @@ final class ServerController {
         result = .free
       } else if let http = response as? HTTPURLResponse, let data,
         http.statusCode < 500,
-        (String(data: data, encoding: .utf8) ?? "").contains("DeepSeek Harness") {
+        (((String(data: data, encoding: .utf8) ?? "").contains("DeepSeek Harness")) ||
+         ((String(data: data, encoding: .utf8) ?? "").contains("dsh web authentication required"))) {
         if logResult { AppLog.shared.info("server: probe \(port): dsh web present") }
         result = .dshReady(port: port)
       } else {
