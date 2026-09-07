@@ -113,8 +113,8 @@ final class ServerController {
     let forced = options.port != nil
     AppLog.shared.info("server: start; target port \(targetPort), forceSpawn=\(options.forceSpawn)")
     delegate?.serverController(self, didUpdateStatus: options.forceSpawn
-      ? "正在启动本地服务…"
-      : "正在检查本地服务…")
+      ? "Starting local service…"
+      : "Checking local service…")
     probe(port: targetPort) { [weak self] result in
       guard let self else { return }
       let decision = Self.startupDecision(
@@ -145,7 +145,7 @@ final class ServerController {
     }
     AppLog.shared.info("server: attaching to existing dsh web at \(url)")
     serverURL = url
-    delegate?.serverController(self, didUpdateStatus: "已连接到本地服务…")
+    delegate?.serverController(self, didUpdateStatus: "Connected to local service…")
     delegate?.serverController(self, didBecomeReady: url)
     let generation = attachmentMonitorGeneration
     scheduleAttachedServerHealthCheck(port: port, generation: generation)
@@ -194,7 +194,7 @@ final class ServerController {
     guard let dshPath = resolveDshBinary() else {
       AppLog.shared.error("server: no dsh binary found")
       delegate?.serverController(self, didFail:
-        "未找到 dsh 命令。需要先安装 DeepSeek Harness CLI（npm i -g @deepseek-ai/dsh）。",
+        "dsh command not found. Install the DeepSeek Harness CLI first (npm i -g @deepseek-ai/dsh).",
         canInstallDsh: true)
       return
     }
@@ -252,14 +252,14 @@ final class ServerController {
       try process.run()
     } catch {
       AppLog.shared.error("server: failed to run dsh: \(error.localizedDescription)")
-      delegate?.serverController(self, didFail: "无法启动 dsh：\(error.localizedDescription)",
+      delegate?.serverController(self, didFail: "Couldn't start dsh: \(error.localizedDescription)",
         canInstallDsh: false)
       return
     }
     spawnedProcess = process
     logTail.removeAll()
     AppLog.shared.info("server: spawned dsh web (pid \(process.processIdentifier)) args=\(args) cwd=\(process.currentDirectoryURL?.path ?? "")")
-    delegate?.serverController(self, didUpdateStatus: "正在启动 DeepSeek Harness…")
+    delegate?.serverController(self, didUpdateStatus: "Starting DeepSeek Harness…")
     scheduleReadyTimeout()
   }
 
@@ -307,7 +307,7 @@ final class ServerController {
       AppLog.shared.error("server: readiness timeout (60s)")
       self.spawnedProcess?.terminate()
       self.delegate?.serverController(self, didFail:
-        "服务启动超时。\n\n最近日志：\n\(self.logTailText())", canInstallDsh: false)
+        "Service startup timed out.\n\nRecent log:\n\(self.logTailText())", canInstallDsh: false)
     }
     readyTimeoutWork = work
     DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: work)
@@ -325,7 +325,7 @@ final class ServerController {
     AppLog.shared.error("server: dsh web exited unexpectedly (code \(code))")
     if serverURL == nil {
       delegate?.serverController(self, didFail:
-        "服务启动失败（退出码 \(code)）。\n\n最近日志：\n\(logTailText())", canInstallDsh: false)
+        "Service failed to start (exit code \(code)).\n\nRecent log:\n\(logTailText())", canInstallDsh: false)
       return
     }
     serverURL = nil
@@ -337,14 +337,14 @@ final class ServerController {
     restartAttempts += 1
     if restartAttempts <= 3 {
       AppLog.shared.info("server: scheduling restart (attempt \(restartAttempts))")
-      delegate?.serverController(self, didUpdateStatus: "服务意外退出，正在重启…")
+      delegate?.serverController(self, didUpdateStatus: "Service exited unexpectedly; restarting…")
       DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
         guard let self, !self.stopping else { return }
         self.start()
       }
     } else {
       delegate?.serverController(self, didFail:
-        "服务反复退出，已停止自动重启。\n\n最近日志：\n\(self.logTailText())", canInstallDsh: false)
+        "Service kept exiting; automatic restart stopped.\n\nRecent log:\n\(self.logTailText())", canInstallDsh: false)
     }
   }
 
@@ -445,7 +445,7 @@ final class ServerController {
           "server: attached dsh on port \(port) disappeared; starting a managed replacement")
         self.serverURL = nil
         self.delegate?.serverController(
-          self, didUpdateStatus: "已连接的服务已退出，正在启动替代服务…")
+          self, didUpdateStatus: "The connected service exited; starting a replacement…")
         self.spawn(port: replacementPort)
       }
     }

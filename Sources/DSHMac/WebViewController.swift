@@ -189,7 +189,7 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
   private let overlay = NSView()
   private let spinner = NSProgressIndicator()
   private let statusLabel = NSTextField(labelWithString: "")
-  private let retryButton = NSButton(title: "重试", target: nil, action: nil)
+  private let retryButton = NSButton(title: "Retry", target: nil, action: nil)
   private let findBar = NSVisualEffectView()
   private let findField = FindSearchField()
   private let findStatus = NSTextField(labelWithString: "")
@@ -216,12 +216,12 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
   private static let screenshotScrubScript = """
   (() => {
     const long = [
-      '这是一个用于展示界面外观的示例消息，全部文字均为占位内容。',
-      'DeepSeek Harness 是插件化的智能体框架，本截图不包含任何真实数据。',
-      '这里原本是一条真实消息；为了截图，它已被替换成这段示例文本。',
-      '示例说明：所有会话内容、标题与配置信息都不会出现在截图中。',
+      'Sample message used to preview the layout; all text is placeholder content.',
+      'DeepSeek Harness is a plugin-based agent framework; this screenshot contains no real data.',
+      'A real message used to be here; it was replaced with sample text for the screenshot.',
+      'Sample note: session content, titles and settings never appear in screenshots.',
     ];
-    const mid = ['示例会话标题', '演示项目', '示例消息', '示例说明'];
+    const mid = ['Sample session title', 'Demo project', 'Sample message', 'Sample note'];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const nodes = [];
     while (walker.nextNode()) nodes.push(walker.currentNode);
@@ -229,7 +229,7 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
     for (const n of nodes) {
       const t = (n.nodeValue || '').trim();
       if (!t) continue;
-      n.nodeValue = t.length > 30 ? long[i++ % long.length] : (t.length > 6 ? mid[i++ % mid.length] : '示例');
+      n.nodeValue = t.length > 30 ? long[i++ % long.length] : (t.length > 6 ? mid[i++ % mid.length] : 'Sample');
     }
     document.querySelectorAll('input, textarea').forEach((e) => { e.value = ''; });
     document.querySelectorAll('[contenteditable]').forEach((e) => { e.textContent = ''; });
@@ -250,8 +250,8 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
       const h = window.webkit && window.webkit.messageHandlers
         && window.webkit.messageHandlers.dshContextMenu;
       if (!h) return;
-      const actionPattern = /(重命名|分叉|归档|删除|新建会话|rename|fork|archive|delete|new session)/i;
-      const destructivePattern = /(归档|删除|archive|delete)/i;
+      const actionPattern = /(Rename|Fork|Archive|Delete|New Session|rename|fork|archive|delete|new session)/i;
+      const destructivePattern = /(Archive|Delete|archive|delete)/i;
       const editable = function (element) {
         return !!(element && element.closest
           && element.closest('input,textarea,[contenteditable="true"],a[href]'));
@@ -585,7 +585,7 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
     findBar.layer?.borderColor = NSColor.separatorColor.cgColor
     findBar.isHidden = true
 
-    findField.placeholderString = "在当前会话中查找"
+    findField.placeholderString = "Find in This Session"
     findField.delegate = self
     findField.target = self
     findField.action = #selector(findNextPressed)
@@ -600,13 +600,13 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
       button.bezelStyle = .inline
       button.controlSize = .small
     }
-    findPreviousButton.toolTip = "查找上一个"
+    findPreviousButton.toolTip = "Find Previous"
     findPreviousButton.target = self
     findPreviousButton.action = #selector(findPreviousPressed)
-    findNextButton.toolTip = "查找下一个"
+    findNextButton.toolTip = "Find Next"
     findNextButton.target = self
     findNextButton.action = #selector(findNextPressed)
-    findCloseButton.toolTip = "关闭查找"
+    findCloseButton.toolTip = "Close Find"
     findCloseButton.target = self
     findCloseButton.action = #selector(findClosePressed)
 
@@ -712,7 +712,7 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
         const candidates = Array.from(document.querySelectorAll(
           'button[aria-haspopup="dialog"]'));
         const labelled = candidates.find((button) =>
-          /设置|settings/i.test(
+          /Settings|settings/i.test(
             `${button.getAttribute('aria-label') || ''} ${button.textContent || ''}`));
         const button = slotButton || labelled || (candidates.length === 1 ? candidates[0] : null);
         if (!button) return false;
@@ -728,7 +728,7 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
       (() => {
         const classButton = document.querySelector('button[class*="_newSession"]');
         const labelled = Array.from(document.querySelectorAll('button[aria-label]'))
-          .find((button) => /^(新建会话|new session)$/i.test(
+          .find((button) => /^(New Session|new session)$/i.test(
             (button.getAttribute('aria-label') || '').trim()));
         const button = classButton || labelled;
         if (!button) return false;
@@ -743,7 +743,7 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
     runPageCommand("toggle-sidebar", script: """
       (() => {
         const button = Array.from(document.querySelectorAll('button[aria-label]'))
-          .find((candidate) => /侧边栏|sidebar/i.test(
+          .find((candidate) => /Sidebar|sidebar/i.test(
             candidate.getAttribute('aria-label') || ''));
         if (!button) return false;
         button.click();
@@ -821,7 +821,7 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
     configuration.caseSensitive = false
     configuration.wraps = true
     webView.find(query, configuration: configuration) { [weak self] result in
-      self?.findStatus.stringValue = result.matchFound ? "" : "未找到"
+      self?.findStatus.stringValue = result.matchFound ? "" : "Not Found"
     }
   }
 
@@ -852,13 +852,13 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
 
   private func makeBackgroundContextMenu() -> [NSMenuItem] {
     let newSession = NSMenuItem(
-      title: "新建会话", action: #selector(backgroundNewSession(_:)), keyEquivalent: "")
+      title: "New Session", action: #selector(backgroundNewSession(_:)), keyEquivalent: "")
     newSession.target = self
     let reload = NSMenuItem(
-      title: "重新加载", action: #selector(backgroundReload(_:)), keyEquivalent: "")
+      title: "Reload", action: #selector(backgroundReload(_:)), keyEquivalent: "")
     reload.target = self
     let browser = NSMenuItem(
-      title: "在浏览器中打开", action: #selector(backgroundOpenInBrowser(_:)), keyEquivalent: "")
+      title: "Open in Browser", action: #selector(backgroundOpenInBrowser(_:)), keyEquivalent: "")
     browser.target = self
     return [newSession, .separator(), reload, browser]
   }
@@ -1087,7 +1087,7 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
   func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
     AppLog.shared.error("webview: provisional load failed: \(error.localizedDescription)")
     guard !hasLoadedOnce else { return }
-    statusLabel.stringValue = "页面加载失败：\(error.localizedDescription)"
+    statusLabel.stringValue = "Page failed to load: \(error.localizedDescription)"
     spinner.stopAnimation(nil)
     retryButton.isHidden = false
     overlay.isHidden = false
@@ -1210,9 +1210,9 @@ final class WebViewController: NSViewController, WKNavigationDelegate, WKUIDeleg
     AppLog.shared.error("download: failed: \(error.localizedDescription)")
     let alert = NSAlert()
     alert.alertStyle = .warning
-    alert.messageText = "下载失败"
+    alert.messageText = "Download Failed"
     alert.informativeText = error.localizedDescription
-    alert.addButton(withTitle: "好")
+    alert.addButton(withTitle: "OK")
     if let window = view.window {
       alert.beginSheetModal(for: window)
     } else {

@@ -54,27 +54,27 @@ final class AppUpdater {
       guard let existingPath = self.server.resolveDshBinary() else {
         AppLog.shared.info("updater: no dsh binary resolved; installing global CLI")
         DispatchQueue.main.async {
-          onStatus("首次使用，正在自动安装 DeepSeek Harness CLI…")
+          onStatus("First run; auto-installing DeepSeek Harness CLI…")
         }
         guard let npm = Self.resolveNpm(near: nil) else {
           AppLog.shared.error("updater: cannot auto-install dsh because npm was not found")
           self.finish(.failed(
-            "未找到 Node.js/npm。请运行完整安装程序，它会先安装 Node.js，再安装全局 dsh。",
+            "Node.js/npm not found. Run the full installer, which installs Node.js first, then the global dsh.",
             offersFullInstaller: true), completion)
           return
         }
         let result = Self.runNpmInstall(using: npm, prefix: nil)
         guard result.exit == 0 else {
           let detail = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
-          let suffix = detail.isEmpty ? "请确认已安装 Node.js（含 npm）并检查网络连接。" : String(detail.suffix(1000))
+          let suffix = detail.isEmpty ? "Please confirm Node.js (with npm) is installed and check your network connection." : String(detail.suffix(1000))
           self.finish(.failed(
-            "自动安装 dsh 失败（退出码 \(result.exit)）。\n\n\(suffix)",
+            "Automatic dsh install failed (exit code \(result.exit)).\n\n\(suffix)",
             offersFullInstaller: true), completion)
           return
         }
         guard let installedPath = self.server.resolveDshBinary() else {
           self.finish(.failed(
-            "dsh 安装命令已完成，但 App 未找到安装结果。请查看日志。",
+            "The dsh install command finished, but the app couldn't find the result. Check the log.",
             offersFullInstaller: true), completion)
           return
         }
@@ -110,7 +110,7 @@ final class AppUpdater {
 
       AppLog.shared.info("updater: dsh CLI \(installed) -> \(latest); installing")
       DispatchQueue.main.async {
-        onStatus("正在更新 DeepSeek Harness CLI（\(installed) → \(latest)）…")
+        onStatus("Updating DeepSeek Harness CLI (\(installed) → \(latest))…")
       }
       let update = Self.runNpmInstall(using: npm, prefix: existingPrefix)
       if update.exit == 0 {
@@ -296,10 +296,10 @@ final class AppUpdater {
 
   private func offerRestart() {
     let alert = NSAlert()
-    alert.messageText = "DeepSeek Harness 已更新"
-    alert.informativeText = "新版本已就绪，重启后生效。"
-    alert.addButton(withTitle: "立即重启")
-    alert.addButton(withTitle: "稍后")
+    alert.messageText = "DeepSeek Harness Updated"
+    alert.informativeText = "New version is ready; it takes effect after restart."
+    alert.addButton(withTitle: "Restart Now")
+    alert.addButton(withTitle: "Later")
     let parent = NSApp.keyWindow
     if let parent {
       alert.beginSheetModal(for: parent) { response in
@@ -328,9 +328,9 @@ final class AppUpdater {
       AppLog.shared.error("updater: failed to launch relaunch helper: \(error.localizedDescription)")
       let alert = NSAlert()
       alert.alertStyle = .warning
-      alert.messageText = "无法自动重新启动"
-      alert.informativeText = "新版本已经安装，但重新启动助手未能运行。请手动退出并重新打开 DeepSeek Harness。"
-      alert.addButton(withTitle: "知道了")
+      alert.messageText = "Couldn't Restart Automatically"
+      alert.informativeText = "The new version is installed, but the restart helper didn't run. Please quit and reopen DeepSeek Harness manually."
+      alert.addButton(withTitle: "OK")
       alert.runModal()
     }
   }

@@ -152,7 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ServerControllerDelega
       window.center()
     }
     self.window = window
-    controller.showStatus("正在准备 DeepSeek Harness…")
+    controller.showStatus("Preparing DeepSeek Harness…")
   }
 
   private func showMainWindow() {
@@ -225,12 +225,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ServerControllerDelega
     AppLog.shared.error("app: presenting failure dialog: \(message)")
     let alert = NSAlert()
     alert.alertStyle = .critical
-    alert.messageText = "无法启动 DeepSeek Harness"
+    alert.messageText = "Couldn't Start DeepSeek Harness"
     alert.informativeText = message
-    alert.addButton(withTitle: "重试")
-    if offersFullInstaller { alert.addButton(withTitle: "运行完整安装程序") }
-    alert.addButton(withTitle: "查看日志")
-    alert.addButton(withTitle: "退出")
+    alert.addButton(withTitle: "Retry")
+    if offersFullInstaller { alert.addButton(withTitle: "Run Full Installer") }
+    alert.addButton(withTitle: "View Log")
+    alert.addButton(withTitle: "Quit")
     let completion: (NSApplication.ModalResponse) -> Void = { [weak self] response in
       guard let self else { return }
       switch response {
@@ -289,7 +289,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ServerControllerDelega
     } catch {
       AppLog.shared.error("install: cannot launch Terminal installer: \(error.localizedDescription)")
       presentFailure(
-        "无法打开终端安装程序：\(error.localizedDescription)",
+        "Couldn't open the terminal installer: \(error.localizedDescription)",
         retryPreparesDsh: true,
         offersFullInstaller: false)
     }
@@ -298,7 +298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ServerControllerDelega
   private func beginWaitingForFullInstaller() {
     installerPollGeneration += 1
     let generation = installerPollGeneration
-    webVC?.showStatus("等待终端完成 Node.js 和 dsh 安装…")
+    webVC?.showStatus("Waiting for the terminal to finish installing Node.js and dsh…")
     pollForInstalledDsh(generation: generation, attempt: 0)
   }
 
@@ -316,7 +316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ServerControllerDelega
           self.pollForInstalledDsh(generation: generation, attempt: attempt + 1)
         } else {
           self.presentFailure(
-            "等待完整安装程序超时。请检查终端中的错误信息后重试。",
+            "Timed out waiting for the full installer. Check the terminal for errors and retry.",
             retryPreparesDsh: true,
             offersFullInstaller: true)
         }

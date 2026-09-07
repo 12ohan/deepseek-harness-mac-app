@@ -24,13 +24,11 @@ final class AppLog {
       let fm = FileManager.default
       let dir = (path as NSString).deletingLastPathComponent
       try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-      fm.createFile(atPath: path, contents: nil)
+      // Truncate on each launch (as documented above): overwrite with empty
+      // data, then open for writing. `createFile` + `seekToEnd` would append
+      // and let the log grow without bound.
+      try? Data().write(to: URL(fileURLWithPath: path))
       handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: path))
-      do {
-        try handle?.seekToEnd()
-      } catch {
-        handle?.seekToEndOfFile()
-      }
     }
   }
 

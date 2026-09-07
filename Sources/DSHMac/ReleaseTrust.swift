@@ -11,15 +11,15 @@ enum ReleaseTrustError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .missingExecutable:
-      return "更新包缺少 DeepSeekHarness 主程序"
+      return "Update package is missing the DeepSeekHarness main executable"
     case .invalidBundleIdentifier:
-      return "更新包的 Bundle ID 不正确"
+      return "Update package has an incorrect Bundle ID"
     case .invalidCodeSignature(let detail):
-      return "更新包代码签名无效：\(detail)"
+      return "Update package code signature is invalid: \(detail)"
     case .missingSigningCertificate:
-      return "更新包没有可验证的签名证书"
+      return "Update package has no verifiable signing certificate"
     case .untrustedSigningCertificate(let fingerprint):
-      return "更新包签名证书不受信任（SHA256 \(fingerprint)）"
+      return "Update package signing certificate is untrusted (SHA256 \(fingerprint))"
     }
   }
 }

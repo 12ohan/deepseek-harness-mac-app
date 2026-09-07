@@ -69,7 +69,7 @@ enum SettingsPresentation {
         const labelledBy = dialog.getAttribute('aria-labelledby');
         const title = labelledBy ? document.getElementById(labelledBy) : null;
         const titleText = title ? (title.textContent || '').trim() : '';
-        return !!dialog.querySelector(':scope > nav') && /^(设置|settings)$/i.test(titleText);
+        return !!dialog.querySelector(':scope > nav') && /^(Settings|settings)$/i.test(titleText);
       };
 
       const maskRGBA = function () {
